@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run Architecture Guardrails Release Check
-        uses: Zune2004/archtour@main
+        uses: Zune2004/archtour@v0
         with:
           mode: check
           strict-release: false # set to true to fail on soft findings
