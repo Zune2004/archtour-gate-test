@@ -1,0 +1,43 @@
+# Archtour Guardrails: CI/CD Architecture Gate
+# Enforces architectural rules, schema changes, and security boundaries on Pull Requests and Merge Queues.
+#
+# Setting up as a Required Status Check with GitHub Rulesets:
+# 1. In your GitHub repository, navigate to Settings > Rules > Rulesets.
+# 2. Click "New ruleset" > "New branch ruleset".
+# 3. Name the ruleset (e.g. "Main branch protection") and set Enforcement status to "Active".
+# 4. Under "Target branches", select "Include default branch" (or branch pattern `refs/heads/main`).
+# 5. Under "Rules", enable "Require status checks to pass before merging".
+# 6. Search for and add "Archtour Guardrails" (the job name below) as a required status check.
+# 7. Merge Queue: When GitHub Merge Queue is enabled, merge_group events run and validate against the latest target branch.
+#
+# Override Flow:
+# - If an architectural change produces a soft finding, apply the `archtour-override` label to the PR.
+# - A user with write, maintain, or admin repository permission must post a PR comment:
+#     /archtour override <ruleId> <reason>
+# - The check parses the comment, verifies write permission, and passes the gate with an audit log.
+
+name: Archtour Guardrails
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  guardrails:
+    name: Archtour Guardrails
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Architecture Guardrails Gate
+        uses: Zune2004/archtour@main
+        with:
+          mode: check
+          github-token: ${{ github.token }}

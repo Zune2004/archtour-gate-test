@@ -1,0 +1,25 @@
+// Initial E-Commerce / SaaS Database Schema (v1)
+
+model User {
+  id        Int       @id
+  email     String    @unique
+  name      String
+  posts     Post[]
+  sessions  Session[]
+}
+
+model Session {
+  id        String    @id
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  token     String    @unique
+  expiresAt DateTime
+}
+
+model Post {
+  id        Int       @id
+  title     String
+  content   String
+  authorId  Int
+  author    User      @relation(fields: [authorId], references: [id])
+}

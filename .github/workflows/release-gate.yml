@@ -1,0 +1,39 @@
+# Archtour Guardrails: Release & Tag Gate
+# Checks architectural and breaking schema changes between this release tag and the previous tag.
+#
+# Release Gate Behavior:
+# - Compares the release/tag against the previous tag using:
+#     git describe --tags --abbrev=0 <tag>^
+#   (falls back to the initial repository commit if this is the first tag).
+# - Hard findings (e.g. privileged container, Docker socket mount, removed API security) always fail.
+# - Soft findings (e.g. removed DB models, removed API routes) report as notices/warnings by default
+#   since there is no PR comment to override from.
+# - Set `strict-release: true` if you want unoverridden soft findings to fail release and tag runs.
+
+name: Archtour Release Gate
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  release-gate:
+    name: Archtour Release Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Architecture Guardrails Release Check
+        uses: Zune2004/archtour@main
+        with:
+          mode: check
+          strict-release: false # set to true to fail on soft findings

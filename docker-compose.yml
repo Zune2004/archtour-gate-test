@@ -1,0 +1,15 @@
+services:
+  web:
+    image: nginx:1.27
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on: [api]
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: postgres:16
