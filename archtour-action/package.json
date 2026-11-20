@@ -1,0 +1,50 @@
+{
+  "name": "archtour",
+  "version": "0.3.0",
+  "type": "module",
+  "description": "Blocks risky pull requests: dropped columns, breaking API changes, privileged containers, public ports, deleted databases. Open source, runs in your CI.",
+  "license": "MIT",
+  "bin": {
+    "archtour": "tools/diagram.mjs"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "keywords": [
+    "guardrails",
+    "migrations",
+    "breaking-changes",
+    "schema",
+    "ci",
+    "github-action",
+    "prisma",
+    "openapi",
+    "architecture",
+    "docker-compose",
+    "offline"
+  ],
+  "dependencies": {
+    "graphql": "^17.1.0",
+    "yaml": "^2.9.1"
+  },
+  "files": [
+    "tools/*.mjs",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "node --test --test-concurrency=4 tests/*.test.mjs",
+    "check": "node tools/diagram.mjs check",
+    "archtour": "node tools/diagram.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zune2004/archtour.git"
+  },
+  "homepage": "https://github.com/Zune2004/archtour#readme",
+  "bugs": {
+    "url": "https://github.com/Zune2004/archtour/issues"
+  }
+}

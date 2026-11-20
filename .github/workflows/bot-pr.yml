@@ -1,0 +1,33 @@
+name: Open a test PR as the Actions bot
+
+# The override flow refuses the PR's own author. This opens a PR authored by github-actions[bot], so the repository owner
+# can approve it as a different person. Run manually: gh workflow run bot-pr.yml -f branch=<name>
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch name for the test PR
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove Post.content and open a PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          sed -i '/^  content   String$/d' prisma/schema.prisma
+          git commit -am "db: drop Post.content (override test)"
+          git push origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" --title "Drop Post.content (override test)" \
+            --body "Opened by the Actions bot to test the Archtour override flow."
