@@ -19,7 +19,6 @@ model Session {
 model Post {
   id        Int       @id
   title     String
-  content   String
   authorId  Int
   author    User      @relation(fields: [authorId], references: [id])
 }
