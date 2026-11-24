@@ -16,6 +16,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: Zune2004/archtour@v0
+      # Label test for 0.3.3 (needs-human gate), runs the unreleased main.
+      - uses: Zune2004/archtour@main
+        id: archtour
         with:
           mode: check
+          needs-human-label: needs-human
+      - if: ${{ !cancelled() }}
+        run: |
+          echo "needs-human=${{ steps.archtour.outputs.needs-human }}"
+          echo "needs-human-reasons=${{ steps.archtour.outputs.needs-human-reasons }}"
+          echo "verdict=${{ steps.archtour.outputs.verdict }}"
