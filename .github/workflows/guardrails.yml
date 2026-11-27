@@ -9,13 +9,127 @@ permissions:
   contents: read
   pull-requests: write
 
+# Live test of the 0.4.0 `import` input (Archtour main). Fake linters stand in for Squawk and buf; the steps follow
+# docs/GUARDRAILS.md section 7.
 jobs:
-  guardrails:
+  squawk:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: Zune2004/archtour@v0
+      - name: Fake Squawk (prints JSON, exits 1 like Squawk with findings)
+        shell: bash
+        run: |
+          squawk() { echo '[{"file":"./migrations/0002.sql","line":0,"column":0,"level":"Warning","message":"Dropping a column may break existing clients.","note":null,"help":null,"rule_name":"ban-drop-column","column_end":1,"line_end":0}]'; return 1; }
+          squawk --reporter json migrations/0002.sql > squawk.json || true
+      - uses: Zune2004/archtour@main
+        id: g
+        continue-on-error: true
         with:
           mode: check
+          import: |
+            squawk:squawk.json
+      - name: Assert
+        shell: bash
+        run: |
+          echo "outcome=${{ steps.g.outcome }} verdict=${{ steps.g.outputs.verdict }} needs-human=${{ steps.g.outputs.needs-human }}"
+          echo "reasons=${{ steps.g.outputs.needs-human-reasons }}"
+          test "${{ steps.g.outcome }}" = failure
+          test "${{ steps.g.outputs.verdict }}" = warning
+          test "${{ steps.g.outputs.needs-human }}" = true
+
+  missing-file:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: Zune2004/archtour@main
+        id: g
+        continue-on-error: true
+        with:
+          mode: check
+          import: |
+            squawk:does-not-exist.json
+      - name: Assert
+        shell: bash
+        run: |
+          echo "outcome=${{ steps.g.outcome }} verdict=${{ steps.g.outputs.verdict }} needs-human=${{ steps.g.outputs.needs-human }}"
+          echo "reasons=${{ steps.g.outputs.needs-human-reasons }}"
+          test "${{ steps.g.outcome }}" = failure
+          test "${{ steps.g.outputs.verdict }}" = error
+          test "${{ steps.g.outputs.needs-human }}" = true
+
+  buf-findings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fake buf with findings (exit 100), docs pattern
+        shell: bash
+        run: |
+          buf() { echo '{"path":"proto/user.proto","start_line":8,"start_column":12,"end_line":8,"end_column":17,"type":"FIELD_SAME_TYPE","message":"Field type changed."}'; return 100; }
+          RC=0
+          buf breaking --against '.git#branch=main' --error-format json > buf.jsonl || RC=$?
+          if [ "$RC" -ne 0 ] && [ "$RC" -ne 100 ]; then
+            echo "buf failed with exit code $RC"
+            exit 1
+          fi
+      - name: Fake buf that crashes (exit 1), docs pattern
+        id: crash
+        continue-on-error: true
+        shell: bash
+        run: |
+          buf() { echo "Failure: could not find git ref" >&2; return 1; }
+          RC=0
+          buf breaking --against '.git#branch=main' --error-format json > buf-crash.jsonl || RC=$?
+          if [ "$RC" -ne 0 ] && [ "$RC" -ne 100 ]; then
+            echo "buf failed with exit code $RC"
+            exit 1
+          fi
+      - uses: Zune2004/archtour@main
+        id: g
+        continue-on-error: true
+        with:
+          mode: check
+          import: |
+            buf:buf.jsonl
+      - name: Assert
+        shell: bash
+        run: |
+          echo "crash=${{ steps.crash.outcome }} outcome=${{ steps.g.outcome }} verdict=${{ steps.g.outputs.verdict }} needs-human=${{ steps.g.outputs.needs-human }}"
+          echo "reasons=${{ steps.g.outputs.needs-human-reasons }}"
+          test "${{ steps.crash.outcome }}" = failure
+          test "${{ steps.g.outcome }}" = failure
+          test "${{ steps.g.outputs.verdict }}" = warning
+
+  buf-clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fake buf without findings (exit 0, empty output), docs pattern
+        shell: bash
+        run: |
+          buf() { return 0; }
+          RC=0
+          buf breaking --against '.git#branch=main' --error-format json > buf.jsonl || RC=$?
+          if [ "$RC" -ne 0 ] && [ "$RC" -ne 100 ]; then
+            echo "buf failed with exit code $RC"
+            exit 1
+          fi
+      - uses: Zune2004/archtour@main
+        id: g
+        with:
+          mode: check
+          import: |
+            buf:buf.jsonl
+      - name: Assert
+        shell: bash
+        run: |
+          echo "verdict=${{ steps.g.outputs.verdict }} needs-human=${{ steps.g.outputs.needs-human }}"
+          echo "reasons=${{ steps.g.outputs.needs-human-reasons }}"
+          test "${{ steps.g.outputs.verdict }}" = passed
