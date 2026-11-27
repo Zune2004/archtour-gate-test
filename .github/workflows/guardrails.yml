@@ -9,13 +9,56 @@ permissions:
   contents: read
   pull-requests: write
 
+# Live test of the 0.5.0 dependency-cruiser import (Archtour main). A fake depcruise result stands in for
+# `depcruise --output-type json`; this PR also adds .dependency-cruiser-known-violations.json.
 jobs:
-  guardrails:
+  depcruise-violation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: Zune2004/archtour@v0
+      - name: Fake dependency-cruiser result (one forbidden import)
+        shell: bash
+        run: |
+          echo '{"modules":[],"summary":{"violations":[{"type":"dependency","from":"./src/ui/button.js","to":"src/db/client.js","rule":{"severity":"error","name":"no-ui-to-db"}},{"type":"dependency","from":"src/ui/legacy.js","to":"src/db/client.js","rule":{"severity":"ignore","name":"no-ui-to-db"}}],"error":1,"warn":0,"info":0,"ignore":1,"totalCruised":3}}' > depcruise.json
+      - uses: Zune2004/archtour@main
+        id: g
+        continue-on-error: true
         with:
           mode: check
+          import: |
+            depcruise:depcruise.json
+      - name: Assert
+        shell: bash
+        run: |
+          echo "outcome=${{ steps.g.outcome }} verdict=${{ steps.g.outputs.verdict }} needs-human=${{ steps.g.outputs.needs-human }}"
+          echo "reasons=${{ steps.g.outputs.needs-human-reasons }}"
+          test "${{ steps.g.outcome }}" = failure
+          test "${{ steps.g.outputs.verdict }}" = warning
+          test "${{ steps.g.outputs.needs-human }}" = true
+
+  known-violations-changed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fake dependency-cruiser result without violations
+        shell: bash
+        run: echo '{"modules":[],"summary":{"violations":[],"error":0,"warn":0,"info":0,"ignore":0,"totalCruised":3}}' > depcruise.json
+      - uses: Zune2004/archtour@main
+        id: g
+        continue-on-error: true
+        with:
+          mode: check
+          import: |
+            depcruise:depcruise.json
+      - name: Assert
+        shell: bash
+        run: |
+          echo "outcome=${{ steps.g.outcome }} verdict=${{ steps.g.outputs.verdict }} needs-human=${{ steps.g.outputs.needs-human }}"
+          echo "reasons=${{ steps.g.outputs.needs-human-reasons }}"
+          test "${{ steps.g.outcome }}" = failure
+          test "${{ steps.g.outputs.verdict }}" = warning
+          case "${{ steps.g.outputs.needs-human-reasons }}" in *"linter config change: .dependency-cruiser-known-violations.json"*) ;; *) exit 1 ;; esac

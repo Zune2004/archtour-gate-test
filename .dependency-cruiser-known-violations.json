@@ -1,0 +1,1 @@
+[{"type":"dependency","from":"src/ui/button.js","to":"src/db/client.js","rule":{"severity":"error","name":"no-ui-to-db"}}]
